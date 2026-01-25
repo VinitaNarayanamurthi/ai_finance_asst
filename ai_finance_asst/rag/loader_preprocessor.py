@@ -7,6 +7,8 @@ from langchain_community.document_loaders import FileSystemBlobLoader
 from langchain_community.document_loaders.generic import GenericLoader
 from langchain_community.document_loaders.parsers import PyPDFParser
 from langchain_text_splitters import RecursiveCharacterTextSplitter
+from langchain_community.document_loaders import PyPDFLoader
+
 
 
 # Dynamic path to docs folder
@@ -25,26 +27,49 @@ text_splitter = RecursiveCharacterTextSplitter(
 all_chunks_with_metadata = []
 
 
+def create_contextual_embedding(chunk_data):
+    """
+    Combine content with metadata context for embedding.
+    Creates contextual text that includes source, page, and chunk information.
+    """
+    content = chunk_data["content"]
+    metadata = chunk_data["metadata"]
+    
+    contextual_text = f"""Source: {metadata['source']} Page: {metadata['page']} Chunk: {metadata['chunk_index']}/{metadata['total_chunks']} Content:{content}"""
+    
+    return contextual_text
+
+
 def process_document(doc):
     """
     Process a single document:
     - Clean text
     - Create chunks
     - Preserve metadata (source, page, section)
+    - Create contextual embeddings
     """
     
     # Extract metadata
     source = doc.metadata.get('source', 'unknown')
     page = doc.metadata.get('page', 0)
     
-    # Clean text
+    # Clean text: remove excess newlines and multiple spaces
     RE_EXCESS_NEWLINE = re.compile(r"\n(?=[ a-z])")
     cleaned_text = RE_EXCESS_NEWLINE.sub("", doc.page_content)
+    
+    # Remove multiple consecutive newlines, replace with single space
+    cleaned_text = re.sub(r"\n+", " ", cleaned_text)
+    
+    # Remove multiple consecutive spaces
+    cleaned_text = re.sub(r" +", " ", cleaned_text).strip()
+    
+    # Fix hyphenated words (um-brellas → umbrellas)
+    cleaned_text = re.sub(r"([a-z])-([a-z])", r"\1\2", cleaned_text)
     
     # Split into chunks
     chunks = text_splitter.split_text(cleaned_text)
     
-    # Create chunks with preserved metadata
+    # Create chunks with preserved metadata and contextual embeddings
     for chunk_index, chunk in enumerate(chunks):
         chunk_metadata = {
             "source": source,
@@ -53,29 +78,30 @@ def process_document(doc):
             "total_chunks": len(chunks),
         }
         
-        all_chunks_with_metadata.append({
+        chunk_data = {
             "content": chunk,
-            "metadata": chunk_metadata
-        })
+            "metadata": chunk_metadata,
+        }
+        
+        # Create contextual embedding text
+        chunk_data["contextual_text"] = create_contextual_embedding(chunk_data)
+        
+        all_chunks_with_metadata.append(chunk_data)
     
     return len(chunks)
 
 
-# Load all PDFs
-loader = GenericLoader(
-    blob_loader=FileSystemBlobLoader(
-        path=docs_path,
-        glob="*.pdf",
-    ),
-    blob_parser=PyPDFParser(),
-)
 
-docs = loader.load()
 
-# Process each document independently
-print(f"Loading {len(docs)} documents from {docs_path}\n")
-for doc in docs:
-    chunks_count = process_document(doc)
-    print(f"✓ {doc.metadata['source']}: {chunks_count} chunks created")
+# Load individual PDFs with GenericLoader
+for pdf_file in Path(docs_path).glob("*.pdf"):
+    loader = PyPDFLoader(str(pdf_file))
+    docs = loader.load()
+
+
+    print(f"Loading {len(docs)} pages from {docs_path}\\{pdf_file.name}\n")
+    for doc in docs:
+        chunks_count = process_document(doc)
+        print(f"✓ {doc.metadata['source']}: {chunks_count} chunks created")
 
 print(f"\n✓ Total chunks: {len(all_chunks_with_metadata)}")
