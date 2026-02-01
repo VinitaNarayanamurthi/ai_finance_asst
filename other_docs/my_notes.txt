@@ -1,0 +1,20 @@
+:: check python is available
+python --version
+
+:: create venv named "myenv" in the workspace
+ py -3.11 -m venv .venv   or   uv venv --python 3.11
+
+:: activate the venv (cmd)
+C:\Users\vinit\.venv\Scripts\activate.bat
+
+:: upgrade packaging tools
+python -m pip install --upgrade pip setuptools wheel
+
+:: install packages (example)
+pip install langchain langchain-openai
+
+:: select python interpreter in vs code 
+ C:\Users\vinit\.venv\Scripts\python.exe
+
+
+ ::libraries intalled - langchain langchain-community langchainhub langchain-chroma langchain-openai langchain-classic
