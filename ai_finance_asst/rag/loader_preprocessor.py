@@ -3,6 +3,7 @@ import os
 import re
 from pathlib import Path
 
+from langchain_core.documents import Document
 from langchain_community.document_loaders import PyPDFLoader
 from langchain_text_splitters import RecursiveCharacterTextSplitter
 
@@ -102,23 +103,12 @@ class DocumentProcessor:
         
         # Create chunks with preserved metadata and contextual embeddings
         for chunk_index, chunk in enumerate(chunks):
-            chunk_metadata = {
-                "source": source,
-                "page": page,
-                "chunk_index": chunk_index,
-                "total_chunks": len(chunks),
-            }
-            
-            chunk_data = {
-                "content": chunk,
-                "metadata": chunk_metadata,
-                "contextual_text": self.create_contextual_embedding({
-                    "content": chunk,
-                    "metadata": chunk_metadata
-                })
-            }
-            
-            self.chunks.append(chunk_data)
+
+            document = Document(
+                page_content=chunk, metadata={"source": source, "page": page, "chunk_index": chunk_index, "total_chunks": len(chunks)}
+            )
+            self.chunks.append(document)
+         
         
         return len(chunks)
     
@@ -154,14 +144,6 @@ class DocumentProcessor:
         
         return self.chunks
     
-    def get_chunks(self):
-        """Get all processed chunks."""
-        return self.chunks
-    
-    def clear_chunks(self):
-        """Clear stored chunks."""
-        self.chunks = []
-
 
 # Example usage
 if __name__ == "__main__":

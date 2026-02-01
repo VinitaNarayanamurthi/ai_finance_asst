@@ -1,11 +1,9 @@
 
 import os
 import sys
-import getpass
 from pathlib import Path
 from dotenv import load_dotenv
 from langchain_chroma import Chroma
-from langchain.tools import tool
 from langchain_openai import OpenAIEmbeddings
 
 
@@ -13,7 +11,7 @@ from langchain_openai import OpenAIEmbeddings
 sys.path.insert(0, str(Path(__file__).parent.parent.parent))
 
 # Load environment variables from .env file
-result = load_dotenv(dotenv_path=Path(__file__).parent.parent.parent / ".env")
+result = load_dotenv("C:\\Users\\vinit\\Documents\\agentic_ai\\capstone_project\\ai_finance_asst\\.env")
 
 print(f"load_dotenv returned: {result}")
 
@@ -48,16 +46,6 @@ class EmbeddingProcessor:
         
         self.embeddings = None
     
-    def get_contextual_texts(self):
-        """
-        Extract all contextual texts from chunks.
-        
-        Returns:
-            List of contextual text strings
-        """
-        contextual_texts = [chunk['contextual_text'] for chunk in self.chunks]
-        return contextual_texts
-    
     def create_embeddings(self):
         """
         Create embeddings for all chunks using text-embedding-3-large and store in vector db.
@@ -65,9 +53,9 @@ class EmbeddingProcessor:
         Returns:
             List of embeddings (vectors)
         """
-        texts = self.get_contextual_texts()
+        texts = self.chunks
         print(f"Creating vector db for {len(texts)} chunks...")
-        ids =[i for i in range(len(texts))]
+        ids = [f"chunk_{i}" for i in range(len(texts))]
 
         #create vector store
         self.vector_store = Chroma(
