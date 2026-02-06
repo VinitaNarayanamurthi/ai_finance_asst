@@ -1,0 +1,8 @@
+langchain 
+langgraph 
+langchain_community 
+langchain_text_splitters
+langchain_chroma
+langchain_classic
+pypdf
+cryptography>=3.1
