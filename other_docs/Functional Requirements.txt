@@ -622,3 +622,18 @@ then make it multi agentic with router connection
 
 
 
+ Users
+  ├── id, email, created_at, updated_at,  
+  ├── name, phone
+  ├──  risk_profile
+  └── preferences (JSONB)
+
+  Accounts
+  ├── user_id, account_type
+  ├── balance, currency
+  └── linked_institutions
+
+  Conversations
+  ├── user_id, session_id
+  ├── agent_type
+  └── created_at
