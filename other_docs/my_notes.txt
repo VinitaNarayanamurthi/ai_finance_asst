@@ -18,3 +18,29 @@ pip install langchain langchain-openai
 
 
  ::libraries intalled - langchain langchain-community langchainhub langchain-chroma langchain-openai langchain-classic
+
+
+
+ postgres commands
+
+ 1. \! cls - clear screen 
+
+ 2. \dnS - to check the schema 
+ 3. list all tables in schema - \dt finance_asst.* 
+ 4. \dtvs finance_asst.* - to list all db objects 
+
+ 5. make a schema as default - SET search_path TO finance_asst;
+
+ -- List all tables in schema
+  SELECT table_name
+  FROM information_schema.tables
+  WHERE table_schema = 'finance_asst';
+
+  --get column name from table 
+  SELECT
+      column_name,
+      data_type
+  FROM information_schema.columns
+  WHERE table_schema = 'finance_asst'
+  and table_name = 'users'
+  ORDER BY table_name, ordinal_position;
