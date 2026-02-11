@@ -637,3 +637,7 @@ then make it multi agentic with router connection
   ├── user_id, session_id
   ├── agent_type
   └── created_at
+
+  Project propsal - 
+  1. check whether we can use Amazon RDS to store relevantuser data or if local postgresql is fine!!
+  2. 

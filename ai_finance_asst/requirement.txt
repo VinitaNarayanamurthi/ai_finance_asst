@@ -8,11 +8,13 @@ backoff==2.2.1
 bcrypt==5.0.0
 build==1.4.0
 certifi==2026.1.4
+cffi==2.0.0
 charset-normalizer==3.4.4
 chromadb==1.4.1
 click==8.3.1
 colorama==0.4.6
 coloredlogs==15.0.1
+cryptography==46.0.4
 dataclasses-json==0.6.7
 distro==1.9.0
 durationpy==0.10
@@ -77,7 +79,9 @@ packaging==24.2
 posthog==5.4.0
 propcache==0.4.1
 protobuf==6.33.5
+psycopg2-binary==2.9.11
 pybase64==1.4.3
+pycparser==3.0
 pydantic==2.12.5
 pydantic-settings==2.12.0
 pydantic_core==2.41.5
