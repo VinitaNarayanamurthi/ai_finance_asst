@@ -7,7 +7,7 @@ from langgraph.graph import StateGraph, END
 from langchain_openai import ChatOpenAI
 from langchain_core.messages import HumanMessage
 from langchain.tools import tool
-from langchain.agents import create_agent, AgentExecutor
+from langchain.agents import create_openai_tools_agent, AgentExecutor
 
 from langchain_core.prompts import ChatPromptTemplate
 import json
@@ -59,26 +59,32 @@ def with_retry(fn, retries=3, base_delay=1):
 
 @tool
 def finance_qa_tool(question: str) -> str:
+    """Answer financial Q&A questions with expert insights."""
     return f"Finance Answer: {question}"
 
 @tool
 def portfolio_analysis_tool(details: str) -> str:
+    """Analyze portfolio risk metrics, allocation, and diversification."""
     return "Portfolio risk metrics and allocation evaluated."
 
 @tool
 def market_analysis_tool(topic: str) -> str:
+    """Analyze market trends, volatility, and macroeconomic signals."""
     return "Market volatility, trends, and macro signals analyzed."
 
 @tool
 def goal_planning_tool(context: str) -> str:
+    """Create structured retirement and wealth-building roadmaps."""
     return "Structured retirement and wealth-building roadmap created."
 
 @tool
 def news_synth_tool(topic: str) -> str:
+    """Synthesize and summarize latest financial news."""
     return "Latest financial news synthesized."
 
 @tool
 def tax_education_tool(query: str) -> str:
+    """Explain tax optimization strategies and implications."""
     return "Explained tax optimization strategies and implications."
 
 # ============================================================
@@ -92,7 +98,7 @@ def build_executor(system_prompt, tools):
         ("system", system_prompt),
         ("human", "{input}")
     ])
-    agent = create_agent(llm, tools, prompt)
+    agent = create_openai_tools_agent(llm, tools, prompt)
     return AgentExecutor(agent=agent, tools=tools, verbose=False)
 
 qa_executor = build_executor("You are a finance Q&A expert.", [finance_qa_tool])
