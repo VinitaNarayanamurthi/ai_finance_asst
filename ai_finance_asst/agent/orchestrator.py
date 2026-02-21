@@ -17,6 +17,7 @@ import random
 from pathlib import Path
 from dotenv import load_dotenv
 import os
+import importlib.util
 
 # Add parent directory to path to allow absolute imports
 sys.path.insert(0, str(Path(__file__).parent.parent.parent))
@@ -31,6 +32,26 @@ print(f"load_dotenv returned: {result}")
 api_key = os.getenv("OPENAI_API_KEY")
 if not api_key:
     raise ValueError("OPENAI_API_KEY not found in environment. Please set it in .env or export it.")
+
+# Load portfolio analyzer module dynamically
+def _load_portfolio_analyzer():
+    """Dynamically load the portfolio analyzer module."""
+    analyzer_path = Path(__file__).resolve().parent.parent / "tools" / "portfolio_analyzer.py"
+    if not analyzer_path.exists():
+        raise FileNotFoundError(f"Portfolio analyzer not found at: {analyzer_path}")
+    
+    spec = importlib.util.spec_from_file_location("portfolio_analyzer", str(analyzer_path))
+    module = importlib.util.module_from_spec(spec)
+    loader = spec.loader
+    assert loader is not None
+    loader.exec_module(module)
+    return module
+
+try:
+    portfolio_analyzer_module = _load_portfolio_analyzer()
+except Exception as e:
+    print(f"Warning: Could not load portfolio analyzer: {e}")
+    portfolio_analyzer_module = None
 
 # ============================================================
 # SHARED STATE
@@ -81,9 +102,63 @@ def finance_qa_tool(question: str) -> str:
     return f"Finance Answer: {question}"
 
 @tool
-def portfolio_analysis_tool(details: str) -> str:
-    """Analyze portfolio risk metrics, allocation, and diversification."""
-    return "Portfolio risk metrics and allocation evaluated."
+def portfolio_analysis_tool(file_path: str = None) -> str:
+    """Analyze portfolio risk metrics, allocation, and diversification using actual portfolio analyzer."""
+    if portfolio_analyzer_module is None:
+        return "Portfolio analyzer module unavailable."
+    
+    try:
+        # Resolve the file path
+        resolved_path = None
+        
+        if file_path:
+            # Try the provided path first
+            p = Path(file_path)
+            if p.exists():
+                resolved_path = str(p)
+        
+        # If not found, look in tools directory
+        if not resolved_path:
+            tools_dir = Path(__file__).resolve().parent.parent / "tools"
+            sample_files = list(tools_dir.glob("sample_*.xlsx"))
+            if sample_files:
+                resolved_path = str(sample_files[0])
+                file_path = resolved_path
+        
+        if not resolved_path:
+            return "No portfolio file found. Please provide a valid file path or ensure sample_portfolio.xlsx exists in tools directory."
+        
+        # Verify file exists before calling analyzer
+        if not Path(resolved_path).exists():
+            return f"Portfolio file not found: {resolved_path}"
+        
+        # Run the analyzer
+        output_dir = Path(__file__).resolve().parent.parent / "analysis_output"
+        output_dir.mkdir(exist_ok=True)
+        
+        results = portfolio_analyzer_module.analyze_portfolio(resolved_path, str(output_dir))
+        
+        # Format results for return
+        if isinstance(results, dict):
+            summary = f"Portfolio Analysis Results:\n"
+            if "holdings_analysis" in results:
+                summary += f"- Total Holdings: {len(results['holdings_analysis'])} assets\n"
+            if "total_value" in results:
+                summary += f"- Portfolio Value: ${results['total_value']:,.2f}\n"
+            if "diversification" in results:
+                hhi = results['diversification'].get('hhi_index', 0)
+                summary += f"- Diversification (HHI): {hhi:.4f}\n"
+            if "sector_allocation" in results:
+                summary += f"- Sector Allocation: {len(results['sector_allocation'])} sectors\n"
+            if "charts_generated" in results:
+                summary += f"- Charts Generated: {results['charts_generated']} visualizations\n"
+                if "chart_paths" in results:
+                    summary += f"  Paths: {', '.join(results['chart_paths'][:3])}\n"
+            return summary
+        else:
+            return str(results)
+    except Exception as e:
+        return f"Portfolio analysis error: {str(e)}"
 
 @tool
 def market_analysis_tool(topic: str) -> str:
@@ -117,10 +192,10 @@ def build_executor(system_prompt, tools):
         ("human", "{input}\n\n{agent_scratchpad}")
     ])
     agent = create_openai_tools_agent(llm, tools, prompt)
-    return AgentExecutor(agent=agent, tools=tools, verbose=False)
+    return AgentExecutor(agent=agent, tools=tools, verbose=False, max_iterations=20)
 
 qa_executor = build_executor("You are a finance Q&A expert.", [finance_qa_tool])
-portfolio_executor = build_executor("You are a portfolio analyst.", [portfolio_analysis_tool])
+portfolio_executor = build_executor("You are a portfolio analyst. With the given excel file analyze the portfolio and generate insights and charts. Give the user a summary of the analysis and the paths to generated charts.", [portfolio_analysis_tool])
 market_executor = build_executor("You are a market analyst.", [market_analysis_tool])
 goal_executor = build_executor("You are a financial planner.", [goal_planning_tool])
 news_executor = build_executor("You are a financial news analyst.", [news_synth_tool])
@@ -201,15 +276,32 @@ tax_node = safe_agent_node(tax_executor, "tax_guidance")
 def planner_node(state: FinancialState):
     try:
         response = llm.invoke([HumanMessage(content=f"""
-            Return JSON list of agents to run: qa, portfolio, market, goal, news, tax
-            User input: {state['user_input']}
+You are a financial query router. Analyze the user input and return ONLY a JSON array of agent names to execute.
+Available agents: ["qa", "portfolio", "market", "goal", "news", "tax"]
+
+User input: {state['user_input']}
+
+Return ONLY valid JSON array, nothing else. Example: ["portfolio", "tax", "market"]
         """)])
-        agents = json.loads(response.content)
+        
+        content = response.content.strip()
+        if not content:
+            return {"agents_to_run": ["portfolio"], "errors": ["Planner returned empty response, using default"]}
+        
+        # Try to extract JSON from response (handle markdown code blocks)
+        if "```json" in content:
+            content = content.split("```json")[1].split("```")[0].strip()
+        elif "```" in content:
+            content = content.split("```")[1].split("```")[0].strip()
+        
+        agents = json.loads(content)
         if not isinstance(agents, list):
             raise ValueError("Planner did not return a list")
         return {"agents_to_run": agents}
+    except json.JSONDecodeError as e:
+        return {"agents_to_run": ["portfolio"], "errors": [f"Planner JSON error: {str(e)}"]}
     except Exception as e:
-        return {"agents_to_run": ["qa"], "errors": [f"Planner fallback: {str(e)}"]}
+        return {"agents_to_run": ["portfolio"], "errors": [f"Planner fallback: {str(e)}"]}
 
 def route_agents(state: FinancialState):
     return state["agents_to_run"]
@@ -278,7 +370,7 @@ app = graph.compile()
 
 if __name__ == "__main__":
     result = app.invoke({
-        "user_input": "Analyze my portfolio and explain tax impact under current market conditions"
+        "user_input": "Analyze my portfolio from C:\\Users\\vinit\\Documents\\agentic_ai\\capstone_project\\ai_finance_asst\\tools\\sample_portfolio.xlsx and give me insights on diversification and risk and also dsplay charts"
     })
 
     print("\nFINAL RESPONSE:\n")
