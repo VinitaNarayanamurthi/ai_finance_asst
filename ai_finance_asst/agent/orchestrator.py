@@ -4,12 +4,12 @@
 
 from typing import TypedDict, List
 from langgraph.graph import StateGraph, END
-from langchain.chat_models import ChatOpenAI
-from langchain.schema import HumanMessage
+from langchain_openai import ChatOpenAI
+from langchain_core.messages import HumanMessage
 from langchain.tools import tool
-from langchain.agents import create_openai_tools_agent
-from langchain.agents.agent_executor import AgentExecutor
-from langchain.prompts import ChatPromptTemplate
+from langchain.agents import create_agent, AgentExecutor
+
+from langchain_core.prompts import ChatPromptTemplate
 import json
 import time
 import random
@@ -92,7 +92,7 @@ def build_executor(system_prompt, tools):
         ("system", system_prompt),
         ("human", "{input}")
     ])
-    agent = create_openai_tools_agent(llm, tools, prompt)
+    agent = create_agent(llm, tools, prompt)
     return AgentExecutor(agent=agent, tools=tools, verbose=False)
 
 qa_executor = build_executor("You are a finance Q&A expert.", [finance_qa_tool])
