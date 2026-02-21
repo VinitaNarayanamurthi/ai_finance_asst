@@ -10,8 +10,9 @@ from langchain_openai import OpenAIEmbeddings
 # Add parent directory to path to allow absolute imports
 sys.path.insert(0, str(Path(__file__).parent.parent.parent))
 
-# Load environment variables from .env file
-result = load_dotenv("C:\\Users\\vinit\\Documents\\agentic_ai\\capstone_project\\ai_finance_asst\\.env")
+# Load environment variables from .env file (dynamic path)
+env_path = Path(__file__).resolve().parent.parent / ".env"
+result = load_dotenv(str(env_path))
 
 print(f"load_dotenv returned: {result}")
 

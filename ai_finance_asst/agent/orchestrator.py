@@ -8,11 +8,29 @@ from langchain_openai import ChatOpenAI
 from langchain_core.messages import HumanMessage
 from langchain.tools import tool
 from langchain.agents import create_openai_tools_agent, AgentExecutor
-
 from langchain_core.prompts import ChatPromptTemplate
+
+import sys
 import json
 import time
 import random
+from pathlib import Path
+from dotenv import load_dotenv
+import os
+
+# Add parent directory to path to allow absolute imports
+sys.path.insert(0, str(Path(__file__).parent.parent.parent))
+
+# Load environment variables from .env file (dynamic path)
+env_path = Path(__file__).resolve().parent.parent / ".env"
+result = load_dotenv(str(env_path))
+
+print(f"load_dotenv returned: {result}")
+
+# Get API key with validation
+api_key = os.getenv("OPENAI_API_KEY")
+if not api_key:
+    raise ValueError("OPENAI_API_KEY not found in environment. Please set it in .env or export it.")
 
 # ============================================================
 # SHARED STATE
@@ -91,12 +109,12 @@ def tax_education_tool(query: str) -> str:
 #  BUILD TOOL-CALLING AGENTS
 # ============================================================
 
-llm = ChatOpenAI(model="gpt-4o-mini", temperature=0)
+llm = ChatOpenAI(model="gpt-4o-mini", temperature=0, api_key=api_key)
 
 def build_executor(system_prompt, tools):
     prompt = ChatPromptTemplate.from_messages([
         ("system", system_prompt),
-        ("human", "{input}")
+        ("human", "{input}\n\n{agent_scratchpad}")
     ])
     agent = create_openai_tools_agent(llm, tools, prompt)
     return AgentExecutor(agent=agent, tools=tools, verbose=False)
