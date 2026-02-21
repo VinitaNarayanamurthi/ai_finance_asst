@@ -8,7 +8,7 @@ from langchain_openai import ChatOpenAI
 from langchain_core.messages import HumanMessage
 from langchain.tools import tool
 from langchain.agents import create_openai_tools_agent, AgentExecutor
-from langchain_core.prompts import ChatPromptTemplate
+from langchain_core.prompts import ChatPromptTemplate, MessagesPlaceholder
 
 import sys
 import json
@@ -189,13 +189,20 @@ llm = ChatOpenAI(model="gpt-4o-mini", temperature=0, api_key=api_key)
 def build_executor(system_prompt, tools):
     prompt = ChatPromptTemplate.from_messages([
         ("system", system_prompt),
-        ("human", "{input}\n\n{agent_scratchpad}")
+        ("human", "{input}"),
+        MessagesPlaceholder("agent_scratchpad"),
     ])
     agent = create_openai_tools_agent(llm, tools, prompt)
     return AgentExecutor(agent=agent, tools=tools, verbose=False, max_iterations=20)
 
 qa_executor = build_executor("You are a finance Q&A expert.", [finance_qa_tool])
-portfolio_executor = build_executor("You are a portfolio analyst. With the given excel file analyze the portfolio and generate insights and charts. Give the user a summary of the analysis and the paths to generated charts.", [portfolio_analysis_tool])
+portfolio_executor = build_executor(
+    "You are a portfolio analyst. You MUST use the portfolio_analysis_tool to analyze any portfolio file. "
+    "Always call the tool with the file path from the user query. Never say you cannot access files. "
+    "When the tool returns chart paths, always include the full file paths in your response so the user can open them. "
+    ,
+    [portfolio_analysis_tool]
+)
 market_executor = build_executor("You are a market analyst.", [market_analysis_tool])
 goal_executor = build_executor("You are a financial planner.", [goal_planning_tool])
 news_executor = build_executor("You are a financial news analyst.", [news_synth_tool])
