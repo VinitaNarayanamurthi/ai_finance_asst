@@ -17,7 +17,10 @@ from langchain.tools import tool
 from langchain.agents import create_openai_tools_agent, AgentExecutor
 from langchain_core.prompts import ChatPromptTemplate, MessagesPlaceholder
 
-from portfolio_agent import portfolio_executor  # Import the portfolio executor from the separate module
+from portfolio_agent import portfolio_executor  
+from finance_qa_agent import qa_executor  
+from market_analysis_agent import market_executor  
+from news_synthesizer_agent import news_executor  
 
 # Add parent directory to path to allow absolute imports
 sys.path.insert(0, str(Path(__file__).parent.parent.parent))
@@ -48,9 +51,7 @@ class FinancialState(TypedDict, total=False):
     qa_response: str
     portfolio_analysis: str
     market_analysis: str
-    goal_plan: str
     news_summary: str
-    tax_guidance: str
 
     errors: List[str]
     final_response: str
@@ -76,31 +77,9 @@ def with_retry(fn, retries=3, base_delay=1):
 # ============================================================
 #  DEFINE TOOLS (ONE PER AGENT)
 # ============================================================
+# Note: finance_qa_tool, portfolio_analysis_tool, market_analysis tools, and news tools are imported from their respective agent modules
 
-@tool
-def finance_qa_tool(question: str) -> str:
-    """Answer financial Q&A questions with expert insights."""
-    return f"Finance Answer: {question}"
 
-@tool
-def market_analysis_tool(topic: str) -> str:
-    """Analyze market trends, volatility, and macroeconomic signals."""
-    return "Market volatility, trends, and macro signals analyzed."
-
-@tool
-def goal_planning_tool(context: str) -> str:
-    """Create structured retirement and wealth-building roadmaps."""
-    return "Structured retirement and wealth-building roadmap created."
-
-@tool
-def news_synth_tool(topic: str) -> str:
-    """Synthesize and summarize latest financial news."""
-    return "Latest financial news synthesized."
-
-@tool
-def tax_education_tool(query: str) -> str:
-    """Explain tax optimization strategies and implications."""
-    return "Explained tax optimization strategies and implications."
 
 # ============================================================
 #  BUILD TOOL-CALLING AGENTS
@@ -117,12 +96,9 @@ def build_executor(system_prompt, tools):
     agent = create_openai_tools_agent(llm, tools, prompt)
     return AgentExecutor(agent=agent, tools=tools, verbose=False, max_iterations=20)
 
-qa_executor = build_executor("You are a finance Q&A expert.", [finance_qa_tool])
+# qa_executor, portfolio_executor, market_executor, and news_executor are imported from their respective modules
 
-market_executor = build_executor("You are a market analyst.", [market_analysis_tool])
-goal_executor = build_executor("You are a financial planner.", [goal_planning_tool])
-news_executor = build_executor("You are a financial news analyst.", [news_synth_tool])
-tax_executor = build_executor("You are a tax education specialist.", [tax_education_tool])
+
 
 # ============================================================
 #  GUARDRAILS LAYER
@@ -187,9 +163,7 @@ def safe_agent_node(executor, output_key):
 qa_node = safe_agent_node(qa_executor, "qa_response")
 portfolio_node = safe_agent_node(portfolio_executor, "portfolio_analysis")
 market_node = safe_agent_node(market_executor, "market_analysis")
-goal_node = safe_agent_node(goal_executor, "goal_plan")
 news_node = safe_agent_node(news_executor, "news_summary")
-tax_node = safe_agent_node(tax_executor, "tax_guidance")
 
 # ============================================================
 #  PLANNER NODE WITH FALLBACK
@@ -200,11 +174,11 @@ def planner_node(state: FinancialState):
     try:
         response = llm.invoke([HumanMessage(content=f"""
 You are a financial query router. Analyze the user input and return ONLY a JSON array of agent names to execute.
-Available agents: ["qa", "portfolio", "market", "goal", "news", "tax"]
+Available agents: ["qa", "portfolio", "market", "news"]
 
 User input: {state['user_input']}
 
-Return ONLY valid JSON array, nothing else. Example: ["portfolio", "tax", "market"]
+Return ONLY valid JSON array, nothing else. Example: ["portfolio", "market", "news"]
         """)])
         
         content = response.content.strip()
@@ -239,9 +213,7 @@ def aggregator_node(state: FinancialState):
         "qa_response",
         "portfolio_analysis",
         "market_analysis",
-        "goal_plan",
-        "news_summary",
-        "tax_guidance"
+        "news_summary"
     ]:
         if key in state:
             outputs.append(state[key])
@@ -261,9 +233,7 @@ graph.add_node("planner", planner_node)
 graph.add_node("qa", qa_node)
 graph.add_node("portfolio", portfolio_node)
 graph.add_node("market", market_node)
-graph.add_node("goal", goal_node)
 graph.add_node("news", news_node)
-graph.add_node("tax", tax_node)
 graph.add_node("aggregator", aggregator_node)
 
 graph.set_entry_point("guardrail")
@@ -275,12 +245,10 @@ graph.add_conditional_edges("planner", route_agents, {
     "qa": "qa",
     "portfolio": "portfolio",
     "market": "market",
-    "goal": "goal",
     "news": "news",
-    "tax": "tax",
 })
 
-for node in ["qa", "portfolio", "market", "goal", "news", "tax"]:
+for node in ["qa", "portfolio", "market", "news"]:
     graph.add_edge(node, "aggregator")
 
 graph.add_edge("aggregator", END)
@@ -293,7 +261,7 @@ app = graph.compile()
 
 if __name__ == "__main__":
     result = app.invoke({
-        "user_input": "Analyze my portfolio from C:\\Users\\vinit\\Documents\\agentic_ai\\capstone_project\\ai_finance_asst\\tools\\sample_portfolio.xlsx and give me insights on diversification and risk and also dsplay charts"
+        "user_input": "What are the key financial concepts I should understand about diversification and asset allocation?"
     })
 
     print("\nFINAL RESPONSE:\n")

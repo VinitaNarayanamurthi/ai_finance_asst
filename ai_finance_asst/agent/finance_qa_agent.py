@@ -1,9 +1,13 @@
-
+"""
+Finance Q&A Agent using RAG (Retrieval-Augmented Generation)
+This agent uses vector_store_embedding.py to retrieve relevant context from financial documents
+and answer user questions with expert insights.
+"""
 
 from langchain_openai import ChatOpenAI
 from langchain.tools import tool
 from langchain.agents import create_openai_tools_agent, AgentExecutor
-from langchain_core.prompts import ChatPromptTemplate, MessagesPlaceholder
+from langchain_core.prompts import ChatPromptTemplate
 
 import sys
 from pathlib import Path
@@ -25,93 +29,95 @@ api_key = os.getenv("OPENAI_API_KEY")
 if not api_key:
     raise ValueError("OPENAI_API_KEY not found in environment. Please set it in .env or export it.")
 
+# ============================================================
+# LOAD RAG MODULE DYNAMICALLY
+# ============================================================
 
-# Load portfolio analyzer module dynamically
-def _load_portfolio_analyzer():
-    """Dynamically load the portfolio analyzer module."""
-    analyzer_path = Path(__file__).resolve().parent.parent / "tools" / "portfolio_analyzer.py"
-    if not analyzer_path.exists():
-        raise FileNotFoundError(f"Portfolio analyzer not found at: {analyzer_path}")
+def _load_rag_module():
+    """Dynamically load the vector_store_embedding module."""
+    rag_path = Path(__file__).resolve().parent.parent / "rag" / "vector_store_embedding.py"
+    if not rag_path.exists():
+        raise FileNotFoundError(f"RAG module not found at: {rag_path}")
     
-    spec = importlib.util.spec_from_file_location("portfolio_analyzer", str(analyzer_path))
+    spec = importlib.util.spec_from_file_location("vector_store_embedding", str(rag_path))
     module = importlib.util.module_from_spec(spec)
     loader = spec.loader
     assert loader is not None
     loader.exec_module(module)
     return module
 
+try:
+    rag_module = _load_rag_module()
+    # Initialize the embedding processor once
+    docs_path = Path(__file__).resolve().parent.parent.parent / "docs"
+    embedding_processor = rag_module.EmbeddingProcessor(docs_path=str(docs_path))
+    # The vector store will load from persist_directory if it exists
+    print("RAG module loaded successfully")
+except Exception as e:
+    print(f"Warning: Could not load RAG module: {e}")
+    rag_module = None
+    embedding_processor = None
 
-portfolio_analyzer_module = _load_portfolio_analyzer()
+# ============================================================
+# FINANCE Q&A TOOL
+# ============================================================
 
 @tool
-def portfolio_analysis_tool(file_path: str = None) -> str:
-    """Analyze portfolio risk metrics, allocation, and diversification using actual portfolio analyzer."""
-    if portfolio_analyzer_module is None:
-        return "Portfolio analyzer module unavailable."
+def finance_qa_tool(question: str) -> str:
+    """Answer financial Q&A questions with expert insights using RAG."""
+    if rag_module is None or embedding_processor is None:
+        return "Finance Q&A module unavailable. Please ensure the RAG system is properly initialized."
     
     try:
-        # Resolve the file path
-        resolved_path = None
+        # Retrieve relevant context from vector store
+        context, retrieved_docs = embedding_processor.retrieve_context(question)
         
-        if file_path:
-            # Try the provided path first
-            p = Path(file_path)
-            if p.exists():
-                resolved_path = str(p)
+        # Format response with context and sources
+        if not retrieved_docs:
+            return "No relevant information found in the knowledge base for this question."
         
-        # If not found, look in tools directory
-        if not resolved_path:
-            tools_dir = Path(__file__).resolve().parent.parent / "tools"
-            sample_files = list(tools_dir.glob("sample_*.xlsx"))
-            if sample_files:
-                resolved_path = str(sample_files[0])
-                file_path = resolved_path
+        response = f"Based on financial documents:\n\n{context}\n\n"
+        response += f"Retrieved {len(retrieved_docs)} relevant document(s)."
         
-        if not resolved_path:
-            return "No portfolio file found. Please provide a valid file path or ensure sample_portfolio.xlsx exists in tools directory."
-        
-        # Verify file exists before calling analyzer
-        if not Path(resolved_path).exists():
-            return f"Portfolio file not found: {resolved_path}"
-        
-        # Run the analyzer
-        output_dir = Path(__file__).resolve().parent.parent / "analysis_output"
-        output_dir.mkdir(exist_ok=True)
-        
-        results = portfolio_analyzer_module.analyze_portfolio(file_path= resolved_path, output_dir= str(output_dir))
-        summary = f"Portfolio Analysis Results:\n"
-        for k, v in results.items():
-            if k in portfolio_insights:
-                summary += f"{k}: {v}\n"
-
-        return summary
-        
+        return response
+    
     except Exception as e:
-        return f"Portfolio analysis error: {str(e)}"
+        return f"Finance Q&A error: {str(e)}"
+
+# ============================================================
+# BUILD Q&A AGENT EXECUTOR
+# ============================================================
     
 llm = ChatOpenAI(model="gpt-4o-mini", temperature=0, api_key=api_key)
 
-def build_executor(system_prompt, tools):
-    prompt = ChatPromptTemplate.from_messages([
-        ("system", system_prompt),
-        ("human", "{input}"),
-        MessagesPlaceholder("agent_scratchpad"),
-    ])
-    agent = create_openai_tools_agent(llm, tools, prompt)
-    return AgentExecutor(agent=agent, tools=tools, verbose=False, max_iterations=20)
+prompt = ChatPromptTemplate.from_messages([
+    ("system", """You are a financial Q&A expert. Use the finance_qa_tool to retrieve relevant information 
+    from financial documents to answer user questions. Provide comprehensive, accurate answers based on 
+    the retrieved context. Always cite the sources when answering."""),
+    ("human", "{input}\n\n{agent_scratchpad}")
+])
 
-portfolio_executor = build_executor(
-    "You are a portfolio analyst. You MUST use the portfolio_analysis_tool to analyze any portfolio file. "
-    "Always call the tool with the file path from the user query. Never say you cannot access files. "
-    "When the tool returns chart paths, always include the full file paths in your response so the user can open them. "
-    ,
-    [portfolio_analysis_tool]
+agent = create_openai_tools_agent(llm, [finance_qa_tool], prompt)
+qa_executor = AgentExecutor(
+    agent=agent, 
+    tools=[finance_qa_tool], 
+    verbose=False, 
+    max_iterations=20
 )
 
+# ============================================================
+# STANDALONE TESTING
+# ============================================================
+
 if __name__ == "__main__":
-    result = portfolio_executor.invoke({
-        "input": "Analyze my portfolio from C:\\Users\\vinit\\Documents\\agentic_ai\\capstone_project\\ai_finance_asst\\tools\\sample_portfolio.xlsx and give me insights  and also dsplay charts"
-    })
- 
-    print("\nFINAL RESPONSE:\n")
-    print(result)
+    # Test the Q&A agent
+    test_query = "What are the key financial trends for 2024?"
+    
+    print(f"\nTesting Finance Q&A Agent with query: '{test_query}'\n")
+    
+    result = qa_executor.invoke({"input": test_query})
+    
+    print("\n" + "="*60)
+    print("AGENT RESPONSE:")
+    print("="*60)
+    print(result["output"])

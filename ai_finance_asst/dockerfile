@@ -1,0 +1,40 @@
+# Use Python 3.11 slim image as base
+FROM python:3.11-slim
+
+# Set working directory
+WORKDIR /app
+
+# Set environment variables
+ENV PYTHONUNBUFFERED=1 \
+    PYTHONDONTWRITEBYTECODE=1 \
+    PIP_NO_CACHE_DIR=1 \
+    PIP_DISABLE_PIP_VERSION_CHECK=1
+
+# Install system dependencies
+RUN apt-get update && apt-get install -y \
+    gcc \
+    g++ \
+    build-essential \
+    && rm -rf /var/lib/apt/lists/*
+
+# Copy requirements files
+COPY requirements_new.txt .
+
+# Install Python dependencies
+RUN pip install --upgrade pip && \
+    pip install -r requirements_new.txt && \
+    pip install langchain-openai pandas numpy matplotlib seaborn openpyxl requests python-dotenv
+
+# Copy application code
+COPY . .
+
+# Create necessary directories
+RUN mkdir -p /app/analysis_output \
+    /app/chroma_langchain_db \
+    /app/tools/charts
+
+# Expose port (if running a web service later)
+EXPOSE 8000
+
+# Set the default command to run the orchestrator
+CMD ["python", "agent/orchestrator.py"]
