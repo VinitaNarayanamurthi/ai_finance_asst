@@ -71,16 +71,27 @@ def finance_qa_tool(question: str) -> str:
     try:
         # Retrieve relevant context from vector store
         context, retrieved_docs = embedding_processor.retrieve_context(question)
-        
-        # Format response with context and sources
+
         if not retrieved_docs:
             return "No relevant information found in the knowledge base for this question."
-        
-        response = f"Based on financial documents:\n\n{context}\n\n"
-        response += f"Retrieved {len(retrieved_docs)} relevant document(s)."
-        
+
+        # Build deduplicated source citations from chunk metadata
+        seen = set()
+        sources = []
+        for doc in retrieved_docs:
+            meta = doc.metadata
+            filename = Path(meta.get("source", "unknown")).name
+            page = meta.get("page", "?")
+            key = (filename, page)
+            if key not in seen:
+                seen.add(key)
+                sources.append(f"- {filename}, page {page}")
+
+        sources_block = "Sources:\n" + "\n".join(sources)
+
+        response = f"Based on financial documents:\n\n{context}\n\n{sources_block}"
         return response
-    
+
     except Exception as e:
         return f"Finance Q&A error: {str(e)}"
 
@@ -93,7 +104,9 @@ llm = ChatOpenAI(model="gpt-4o-mini", temperature=0, api_key=api_key)
 prompt = ChatPromptTemplate.from_messages([
     ("system", """You are a financial Q&A expert. Use the finance_qa_tool to retrieve relevant information
     from financial documents to answer user questions. Provide comprehensive, accurate answers based on
-    the retrieved context. Always cite the sources when answering."""),
+    the retrieved context. The tool returns a 'Sources:' section listing the document filenames and page
+    numbers — always include these verbatim at the end of your answer so the user knows exactly where
+    the information came from."""),
     ("human", "{input}"),
     MessagesPlaceholder("agent_scratchpad"),
 ])
