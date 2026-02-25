@@ -48,11 +48,8 @@ jsonschema-specifications==2025.9.1
 kiwisolver==1.4.9
 kubernetes==35.0.0
 langchain==0.3.27
-langchain-chroma==1.1.0
-langchain-classic==1.0.1
+langchain-chroma>=0.1.0,<1.0.0
 langchain-community==0.3.31
-langchain-core==0.3.83
-langchain-experimental==0.4.1
 langchain-openai==0.3.35
 langchain-text-splitters==0.3.11
 langchainhub==0.1.21
@@ -84,7 +81,7 @@ orjson==3.11.6
 ormsgpack==1.12.2
 overrides==7.7.0
 packaging==24.2
-pandas==3.0.1
+pandas==2.3.3
 pillow==12.1.1
 posthog==5.4.0
 propcache==0.4.1
@@ -137,3 +134,4 @@ xxhash==3.6.0
 yarl==1.22.0
 zipp==3.23.0
 zstandard==0.25.0
+streamlit==1.54.0

@@ -19,7 +19,7 @@ services:
       # Mount tools directory with sample data
       - ./tools:/app/tools
     ports:
-      - "8000:8000"
+      - "8501:8501"
     restart: unless-stopped
     networks:
       - finance-network

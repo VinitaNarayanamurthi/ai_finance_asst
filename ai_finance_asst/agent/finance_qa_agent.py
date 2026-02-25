@@ -7,7 +7,7 @@ and answer user questions with expert insights.
 from langchain_openai import ChatOpenAI
 from langchain.tools import tool
 from langchain.agents import create_openai_tools_agent, AgentExecutor
-from langchain_core.prompts import ChatPromptTemplate
+from langchain_core.prompts import ChatPromptTemplate, MessagesPlaceholder
 
 import sys
 from pathlib import Path
@@ -91,18 +91,20 @@ def finance_qa_tool(question: str) -> str:
 llm = ChatOpenAI(model="gpt-4o-mini", temperature=0, api_key=api_key)
 
 prompt = ChatPromptTemplate.from_messages([
-    ("system", """You are a financial Q&A expert. Use the finance_qa_tool to retrieve relevant information 
-    from financial documents to answer user questions. Provide comprehensive, accurate answers based on 
+    ("system", """You are a financial Q&A expert. Use the finance_qa_tool to retrieve relevant information
+    from financial documents to answer user questions. Provide comprehensive, accurate answers based on
     the retrieved context. Always cite the sources when answering."""),
-    ("human", "{input}\n\n{agent_scratchpad}")
+    ("human", "{input}"),
+    MessagesPlaceholder("agent_scratchpad"),
 ])
 
 agent = create_openai_tools_agent(llm, [finance_qa_tool], prompt)
 qa_executor = AgentExecutor(
-    agent=agent, 
-    tools=[finance_qa_tool], 
-    verbose=False, 
-    max_iterations=20
+    agent=agent,
+    tools=[finance_qa_tool],
+    verbose=False,
+    max_iterations=10,
+    handle_parsing_errors=True,
 )
 
 # ============================================================

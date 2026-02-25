@@ -18,12 +18,11 @@ RUN apt-get update && apt-get install -y \
     && rm -rf /var/lib/apt/lists/*
 
 # Copy requirements files
-COPY requirements_new.txt .
+COPY requirements.txt .
 
 # Install Python dependencies
 RUN pip install --upgrade pip && \
-    pip install -r requirements_new.txt && \
-    pip install langchain-openai pandas numpy matplotlib seaborn openpyxl requests python-dotenv
+    pip install -r requirements.txt
 
 # Copy application code
 COPY . .
@@ -33,8 +32,8 @@ RUN mkdir -p /app/analysis_output \
     /app/chroma_langchain_db \
     /app/tools/charts
 
-# Expose port (if running a web service later)
-EXPOSE 8000
+# Expose Streamlit port
+EXPOSE 8501
 
-# Set the default command to run the orchestrator
-CMD ["python", "agent/orchestrator.py"]
+# Set the default command to run the Streamlit app
+CMD ["streamlit", "run", "app/streamlit_app.py", "--server.address=0.0.0.0", "--server.port=8501"]

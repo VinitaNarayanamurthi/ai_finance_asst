@@ -103,7 +103,7 @@ def build_executor(system_prompt, tools):
         MessagesPlaceholder("agent_scratchpad"),
     ])
     agent = create_openai_tools_agent(llm, tools, prompt)
-    return AgentExecutor(agent=agent, tools=tools, verbose=False, max_iterations=20)
+    return AgentExecutor(agent=agent, tools=tools, verbose=False, max_iterations=10, handle_parsing_errors=True)
 
 portfolio_executor = build_executor(
     "You are a portfolio analyst. You MUST use the portfolio_analysis_tool to analyze any portfolio file. "

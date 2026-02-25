@@ -246,29 +246,33 @@ news_tools = [
 ]
 
 prompt = ChatPromptTemplate.from_messages([
-    ("system", """You are a financial news analyst and synthesizer. Use the Alpha Vantage News & Sentiment API tools 
+    ("system", """You are a financial news analyst and synthesizer. Use the Alpha Vantage News & Sentiment API tools
     to fetch the latest financial news, market updates, and sentiment analysis.
-    
+
     Available tools:
     - get_news_sentiment: Get news with sentiment for specific tickers or topics
     - get_market_news_feed: Get general market news by topic (financial_markets, economy, technology, etc.)
     - get_stock_news: Get news specifically about a stock symbol with sentiment
     - get_sector_news: Get news for specific sectors (technology, finance, energy, etc.)
-    
-    The API provides sentiment scores and labels (Bullish, Bearish, Neutral) for each article.
-    Synthesize and summarize the news, highlighting key trends, sentiment shifts, market impacts, and important developments.
-    Always explain the significance of the news and sentiment to investors and market participants.
-    Include relevant article URLs so users can read more if interested."""),
+
+    Choose ONE tool that best matches the user's request — do not call all tools for every query.
+    Use get_stock_news when the user asks about a specific stock.
+    Use get_sector_news when the user asks about a sector.
+    Use get_market_news_feed for general market news.
+    Use get_news_sentiment only when you need combined ticker + topic filtering.
+    If a tool returns a rate-limit or error message, do not retry — report what is available instead.
+    Synthesize and summarize the results, highlighting key trends, sentiment, and important developments."""),
     ("human", "{input}"),
     MessagesPlaceholder("agent_scratchpad"),
 ])
 
 agent = create_openai_tools_agent(llm, news_tools, prompt)
 news_executor = AgentExecutor(
-    agent=agent, 
-    tools=news_tools, 
-    verbose=False, 
-    max_iterations=20
+    agent=agent,
+    tools=news_tools,
+    verbose=False,
+    max_iterations=10,
+    handle_parsing_errors=True,
 )
 
 # ============================================================

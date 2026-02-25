@@ -190,28 +190,30 @@ market_tools = [
 ]
 
 prompt = ChatPromptTemplate.from_messages([
-    ("system", """You are a market analysis expert. Use the Alpha Vantage API tools to fetch real-time market data, 
-    stock prices, company information, and market trends. 
-    
+    ("system", """You are a market analysis expert. Use the Alpha Vantage API tools to fetch real-time market data,
+    stock prices, company information, and market trends.
+
     Available tools:
     - get_stock_quote: Get current price and basic quote information
     - get_stock_intraday: Get intraday price data (5min, 15min, etc.)
     - get_stock_daily: Get daily historical price data
     - search_symbol: Search for stock symbols by company name
     - get_company_overview: Get comprehensive company fundamentals and metrics
-    
-    Always provide data-driven insights and explain market trends based on the retrieved data.
-    When asked about a company, first search for its symbol if not provided, then fetch relevant data."""),
+
+    Use only the tools needed to answer the specific question — do not call every tool for every request.
+    If a symbol is already known, skip search_symbol. If only a price is asked for, only call get_stock_quote.
+    If a tool returns a rate-limit or error message, do not retry it — report what is available instead."""),
     ("human", "{input}"),
     MessagesPlaceholder("agent_scratchpad"),
 ])
 
 agent = create_openai_tools_agent(llm, market_tools, prompt)
 market_executor = AgentExecutor(
-    agent=agent, 
-    tools=market_tools, 
-    verbose=False, 
-    max_iterations=20
+    agent=agent,
+    tools=market_tools,
+    verbose=False,
+    max_iterations=10,
+    handle_parsing_errors=True,
 )
 
 # ============================================================
