@@ -1,4 +1,3 @@
-import os
 import sys
 import tempfile
 from pathlib import Path
@@ -60,22 +59,24 @@ def _render_portfolio_tab():
 		else:
 			file_path = fallback_path
 
-		user_input = f"Analyze my portfolio from {file_path} and give me insights and display charts."
+		user_input = f"Analyze my portfolio from {file_path} and give me insights."
 		with st.spinner("Running Portfolio Analysis agent..."):
 			output = _run_agent(portfolio_executor, user_input)
 
-		st.text(output)
+		st.markdown(output)
 
-		if "chart_paths" in output:
-			st.markdown("#### Charts")
-			for line in output.splitlines():
-				if line.startswith("chart_paths"):
-					parts = line.split(":", 1)
-					if len(parts) == 2:
-						raw_paths = parts[1].strip().strip("[]")
-						for path in [p.strip().strip("'\"") for p in raw_paths.split(",") if p.strip()]:
-							if os.path.exists(path):
-								st.image(path, caption=Path(path).name)
+		# Display charts directly from the analysis_output directory.
+		# The portfolio_analysis_tool saves all PNGs there after every run.
+		output_dir = Path(__file__).resolve().parent.parent / "analysis_output"
+		chart_files = sorted(output_dir.glob("*.png"))
+		if chart_files:
+			st.markdown("---")
+			st.markdown("#### Portfolio Charts")
+			col1, col2 = st.columns(2)
+			for i, chart_path in enumerate(chart_files):
+				caption = chart_path.stem.replace("_", " ").title()
+				with (col1 if i % 2 == 0 else col2):
+					st.image(str(chart_path), caption=caption, use_container_width=True)
 
 
 def _render_market_tab():
