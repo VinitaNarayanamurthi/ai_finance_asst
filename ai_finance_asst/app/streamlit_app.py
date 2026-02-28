@@ -17,6 +17,30 @@ from agent.news_synthesizer_agent import news_executor
 
 APP_TITLE = "AI Finance Assistant"
 
+# Sample questions shown as clickable chips in each tab
+SAMPLES = {
+	"qa": [
+		"What is asset allocation and why does it matter?",
+		"Explain the benefits of dollar-cost averaging",
+		"What are the tax advantages of retirement accounts?",
+	],
+	"portfolio": [
+		"Summarize my top performers and overall return",
+		"How diversified is my portfolio across sectors?",
+		"What is my asset allocation and risk profile?",
+	],
+	"market": [
+		"What is the current price and fundamentals of IBM?",
+		"Show me IBM's daily price trend for the last 10 days",
+		"What sector is IBM in and what are its key valuation metrics?",
+	],
+	"news": [
+		"What are the latest financial market headlines?",
+		"Summarize recent news about technology stocks",
+		"What is the current market sentiment in the finance sector?",
+	],
+}
+
 
 def _render_header():
 	st.set_page_config(page_title=APP_TITLE, layout="wide")
@@ -29,11 +53,27 @@ def _run_agent(executor, user_input: str) -> str:
 	return result.get("output", "No output returned.")
 
 
+def _sample_buttons(key_prefix: str, samples: list[str]):
+	"""Render sample question buttons. Clicking one writes it to session_state."""
+	st.caption("Try a sample question:")
+	cols = st.columns(len(samples))
+	for i, sample in enumerate(samples):
+		with cols[i]:
+			if st.button(sample, key=f"{key_prefix}_sample_{i}", use_container_width=True):
+				st.session_state[key_prefix] = sample
+
+
 def _render_finance_qa_tab():
 	st.subheader("Finance Q&A")
 	st.write("Ask questions grounded in your document knowledge base.")
 
-	question = st.text_area("Question", placeholder="What are the key financial trends for 2024?")
+	_sample_buttons("qa", SAMPLES["qa"])
+
+	question = st.text_area(
+		"Question",
+		value=st.session_state.get("qa", ""),
+		placeholder="What are the key financial trends for 2024?",
+	)
 	if st.button("Run Finance Q&A", type="primary"):
 		if not question.strip():
 			st.warning("Please enter a question.")
@@ -51,6 +91,14 @@ def _render_portfolio_tab():
 	fallback_path = (Path(__file__).resolve().parent.parent / "tools" / "sample_portfolio.xlsx").as_posix()
 	st.caption(f"If no file is uploaded, the default sample file is used: {fallback_path}")
 
+	_sample_buttons("portfolio", SAMPLES["portfolio"])
+
+	focus = st.text_area(
+		"What would you like to know? (optional)",
+		value=st.session_state.get("portfolio", ""),
+		placeholder="Summarize my top performers and overall return",
+	)
+
 	if st.button("Run Portfolio Analysis", type="primary"):
 		if uploaded_file is not None:
 			with tempfile.NamedTemporaryFile(delete=False, suffix=".xlsx") as tmp_file:
@@ -59,7 +107,8 @@ def _render_portfolio_tab():
 		else:
 			file_path = fallback_path
 
-		user_input = f"Analyze my portfolio from {file_path} and give me insights."
+		question_part = focus.strip() if focus.strip() else "give me insights"
+		user_input = f"Analyze my portfolio from {file_path} and {question_part}."
 		with st.spinner("Running Portfolio Analysis agent..."):
 			output = _run_agent(portfolio_executor, user_input)
 
@@ -83,7 +132,13 @@ def _render_market_tab():
 	st.subheader("Market Analysis")
 	st.write("Fetch live market data, quotes, and company fundamentals.")
 
-	request = st.text_area("Request", placeholder="What's the current price of AAPL and its daily trend?")
+	_sample_buttons("market", SAMPLES["market"])
+
+	request = st.text_area(
+		"Request",
+		value=st.session_state.get("market", ""),
+		placeholder="What's the current price of AAPL and its daily trend?",
+	)
 	if st.button("Run Market Analysis", type="primary"):
 		if not request.strip():
 			st.warning("Please enter a request.")
@@ -97,7 +152,13 @@ def _render_news_tab():
 	st.subheader("News Synthesizer")
 	st.write("Summarize market news, sentiment, and headlines.")
 
-	request = st.text_area("Request", placeholder="Summarize the latest news about Apple stock.")
+	_sample_buttons("news", SAMPLES["news"])
+
+	request = st.text_area(
+		"Request",
+		value=st.session_state.get("news", ""),
+		placeholder="Summarize the latest news about Apple stock.",
+	)
 	if st.button("Run News Synthesizer", type="primary"):
 		if not request.strip():
 			st.warning("Please enter a request.")
