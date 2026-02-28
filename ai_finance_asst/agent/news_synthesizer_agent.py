@@ -262,6 +262,7 @@ prompt = ChatPromptTemplate.from_messages([
     Use get_news_sentiment only when you need combined ticker + topic filtering.
     If a tool returns a rate-limit or error message, do not retry — report what is available instead.
     Synthesize and summarize the results, highlighting key trends, sentiment, and important developments."""),
+    MessagesPlaceholder("chat_history"),
     ("human", "{input}"),
     MessagesPlaceholder("agent_scratchpad"),
 ])

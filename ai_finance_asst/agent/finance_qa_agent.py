@@ -107,6 +107,7 @@ prompt = ChatPromptTemplate.from_messages([
     the retrieved context. The tool returns a 'Sources:' section listing the document filenames and page
     numbers — always include these verbatim at the end of your answer so the user knows exactly where
     the information came from."""),
+    MessagesPlaceholder("chat_history"),
     ("human", "{input}"),
     MessagesPlaceholder("agent_scratchpad"),
 ])

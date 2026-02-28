@@ -3,6 +3,7 @@ import tempfile
 from pathlib import Path
 
 import streamlit as st
+from langchain_core.messages import HumanMessage, AIMessage
 
 # Ensure project root is on the path so we can import from agent/
 PROJECT_ROOT = Path(__file__).resolve().parent.parent
@@ -41,6 +42,14 @@ SAMPLES = {
 	],
 }
 
+# Keys for per-tab chat history stored in session_state
+HISTORY_KEYS = {
+	"qa": "qa_history",
+	"portfolio": "portfolio_history",
+	"market": "market_history",
+	"news": "news_history",
+}
+
 
 def _render_header():
 	st.set_page_config(page_title=APP_TITLE, layout="wide")
@@ -48,9 +57,77 @@ def _render_header():
 	st.caption("Run specialized finance agents from a single interface.")
 
 
-def _run_agent(executor, user_input: str) -> str:
-	result = executor.invoke({"input": user_input})
-	return result.get("output", "No output returned.")
+def _render_sidebar():
+	"""Render the user profile panel in the sidebar."""
+	with st.sidebar:
+		st.header("User Profile")
+
+		name = st.text_input(
+			"Name",
+			value=st.session_state.get("profile_name", ""),
+			placeholder="Your name",
+		)
+		risk = st.selectbox(
+			"Risk Tolerance",
+			options=["", "Conservative", "Moderate", "Aggressive"],
+			index=["", "Conservative", "Moderate", "Aggressive"].index(
+				st.session_state.get("profile_risk", "")
+			),
+		)
+		goals = st.text_area(
+			"Investment Goals",
+			value=st.session_state.get("profile_goals", ""),
+			placeholder="e.g. Long-term growth, retirement in 20 years",
+		)
+
+		if st.button("Save Profile", type="primary"):
+			st.session_state["profile_name"] = name
+			st.session_state["profile_risk"] = risk
+			st.session_state["profile_goals"] = goals
+			st.success("Profile saved.")
+
+		st.divider()
+
+		if st.button("Clear All History", use_container_width=True):
+			for key in HISTORY_KEYS.values():
+				st.session_state[key] = []
+			st.rerun()
+
+
+def _build_input(user_input: str) -> str:
+	"""Prepend profile context to the user's message if a profile is set."""
+	parts = []
+	if st.session_state.get("profile_name"):
+		parts.append(f"User: {st.session_state['profile_name']}")
+	if st.session_state.get("profile_risk"):
+		parts.append(f"Risk Tolerance: {st.session_state['profile_risk']}")
+	if st.session_state.get("profile_goals"):
+		parts.append(f"Goals: {st.session_state['profile_goals']}")
+	prefix = f"[{' | '.join(parts)}]\n\n" if parts else ""
+	return prefix + user_input
+
+
+def _run_agent(executor, user_input: str, history_key: str) -> str:
+	"""Invoke the agent with conversation history and persist the exchange."""
+	chat_history = []
+	for h, a in st.session_state.get(history_key, []):
+		chat_history.append(HumanMessage(content=h))
+		chat_history.append(AIMessage(content=a))
+
+	result = executor.invoke({"input": user_input, "chat_history": chat_history})
+	output = result.get("output", "No output returned.")
+
+	st.session_state[history_key].append((user_input, output))
+	return output
+
+
+def _render_chat_history(history_key: str):
+	"""Display previous exchanges for this tab as chat bubbles."""
+	for human_msg, ai_msg in st.session_state.get(history_key, []):
+		with st.chat_message("user"):
+			st.write(human_msg)
+		with st.chat_message("assistant"):
+			st.markdown(ai_msg)
 
 
 def _sample_buttons(key_prefix: str, samples: list[str]):
@@ -67,6 +144,8 @@ def _render_finance_qa_tab():
 	st.subheader("Finance Q&A")
 	st.write("Ask questions grounded in your document knowledge base.")
 
+	_render_chat_history("qa_history")
+
 	_sample_buttons("qa", SAMPLES["qa"])
 
 	question = st.text_area(
@@ -79,13 +158,18 @@ def _render_finance_qa_tab():
 			st.warning("Please enter a question.")
 			return
 		with st.spinner("Running Finance Q&A agent..."):
-			output = _run_agent(qa_executor, question)
-		st.markdown(output)
+			output = _run_agent(qa_executor, _build_input(question), "qa_history")
+		with st.chat_message("user"):
+			st.write(question)
+		with st.chat_message("assistant"):
+			st.markdown(output)
 
 
 def _render_portfolio_tab():
 	st.subheader("Portfolio Analysis")
 	st.write("Analyze your portfolio for allocation, risk, and diversification insights.")
+
+	_render_chat_history("portfolio_history")
 
 	uploaded_file = st.file_uploader("Upload portfolio file (.xlsx)", type=["xlsx"])
 	fallback_path = (Path(__file__).resolve().parent.parent / "tools" / "sample_portfolio.xlsx").as_posix()
@@ -110,12 +194,14 @@ def _render_portfolio_tab():
 		question_part = focus.strip() if focus.strip() else "give me insights"
 		user_input = f"Analyze my portfolio from {file_path} and {question_part}."
 		with st.spinner("Running Portfolio Analysis agent..."):
-			output = _run_agent(portfolio_executor, user_input)
+			output = _run_agent(portfolio_executor, _build_input(user_input), "portfolio_history")
 
-		st.markdown(output)
+		with st.chat_message("user"):
+			st.write(user_input)
+		with st.chat_message("assistant"):
+			st.markdown(output)
 
 		# Display charts directly from the analysis_output directory.
-		# The portfolio_analysis_tool saves all PNGs there after every run.
 		output_dir = Path(__file__).resolve().parent.parent / "analysis_output"
 		chart_files = sorted(output_dir.glob("*.png"))
 		if chart_files:
@@ -132,6 +218,8 @@ def _render_market_tab():
 	st.subheader("Market Analysis")
 	st.write("Fetch live market data, quotes, and company fundamentals.")
 
+	_render_chat_history("market_history")
+
 	_sample_buttons("market", SAMPLES["market"])
 
 	request = st.text_area(
@@ -144,13 +232,18 @@ def _render_market_tab():
 			st.warning("Please enter a request.")
 			return
 		with st.spinner("Running Market Analysis agent..."):
-			output = _run_agent(market_executor, request)
-		st.markdown(output)
+			output = _run_agent(market_executor, _build_input(request), "market_history")
+		with st.chat_message("user"):
+			st.write(request)
+		with st.chat_message("assistant"):
+			st.markdown(output)
 
 
 def _render_news_tab():
 	st.subheader("News Synthesizer")
 	st.write("Summarize market news, sentiment, and headlines.")
+
+	_render_chat_history("news_history")
 
 	_sample_buttons("news", SAMPLES["news"])
 
@@ -164,12 +257,22 @@ def _render_news_tab():
 			st.warning("Please enter a request.")
 			return
 		with st.spinner("Running News Synthesizer agent..."):
-			output = _run_agent(news_executor, request)
-		st.markdown(output)
+			output = _run_agent(news_executor, _build_input(request), "news_history")
+		with st.chat_message("user"):
+			st.write(request)
+		with st.chat_message("assistant"):
+			st.markdown(output)
 
 
 def main():
 	_render_header()
+
+	# Initialise per-tab history lists once per session
+	for key in HISTORY_KEYS.values():
+		if key not in st.session_state:
+			st.session_state[key] = []
+
+	_render_sidebar()
 
 	tabs = st.tabs([
 		"Finance Q&A",

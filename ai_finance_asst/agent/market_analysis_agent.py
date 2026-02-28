@@ -203,6 +203,7 @@ prompt = ChatPromptTemplate.from_messages([
     Use only the tools needed to answer the specific question — do not call every tool for every request.
     If a symbol is already known, skip search_symbol. If only a price is asked for, only call get_stock_quote.
     If a tool returns a rate-limit or error message, do not retry it — report what is available instead."""),
+    MessagesPlaceholder("chat_history"),
     ("human", "{input}"),
     MessagesPlaceholder("agent_scratchpad"),
 ])

@@ -99,6 +99,7 @@ llm = ChatOpenAI(model="gpt-4o-mini", temperature=0, api_key=api_key)
 def build_executor(system_prompt, tools):
     prompt = ChatPromptTemplate.from_messages([
         ("system", system_prompt),
+        MessagesPlaceholder("chat_history"),
         ("human", "{input}"),
         MessagesPlaceholder("agent_scratchpad"),
     ])
