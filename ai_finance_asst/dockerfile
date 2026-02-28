@@ -1,39 +1,45 @@
-# Use Python 3.11 slim image as base
+# Build context must be the capstone_project/ directory (one level above ai_finance_asst/).
+# This mirrors the local repo structure inside the container so that all path
+# calculations using parent.parent.parent resolve correctly.
+#
+# Build:   docker compose up --build   (from ai_finance_asst/)
+# Manual:  docker build -f ai_finance_asst/Dockerfile -t ai-finance-asst ..
+
 FROM python:3.11-slim
 
-# Set working directory
 WORKDIR /app
 
-# Set environment variables
 ENV PYTHONUNBUFFERED=1 \
     PYTHONDONTWRITEBYTECODE=1 \
     PIP_NO_CACHE_DIR=1 \
     PIP_DISABLE_PIP_VERSION_CHECK=1
 
-# Install system dependencies
+# System deps needed to compile some Python packages (e.g. grpcio, onnxruntime)
 RUN apt-get update && apt-get install -y \
     gcc \
     g++ \
     build-essential \
     && rm -rf /var/lib/apt/lists/*
 
-# Copy requirements files
-COPY requirements.txt .
-
-# Install Python dependencies
+# Install Python dependencies before copying app code for better layer caching
+COPY ai_finance_asst/requirements.txt ai_finance_asst/requirements.txt
 RUN pip install --upgrade pip && \
-    pip install -r requirements.txt
+    pip install -r ai_finance_asst/requirements.txt
 
 # Copy application code
-COPY . .
+COPY ai_finance_asst/ ./ai_finance_asst/
 
-# Create necessary directories
-RUN mkdir -p /app/analysis_output \
-    /app/chroma_langchain_db \
-    /app/tools/charts
+# Copy docs (PDF knowledge base for RAG); can be overridden by a volume mount
+COPY docs/ ./docs/
 
-# Expose Streamlit port
+# Ensure runtime directories exist (volumes will mount over these at runtime)
+RUN mkdir -p /app/chroma_langchain_db \
+             /app/ai_finance_asst/analysis_output
+
 EXPOSE 8501
 
-# Set the default command to run the Streamlit app
-CMD ["streamlit", "run", "app/streamlit_app.py", "--server.address=0.0.0.0", "--server.port=8501"]
+# --server.headless=true prevents Streamlit from trying to open a browser
+CMD ["streamlit", "run", "ai_finance_asst/app/streamlit_app.py", \
+     "--server.address=0.0.0.0", \
+     "--server.port=8501", \
+     "--server.headless=true"]
