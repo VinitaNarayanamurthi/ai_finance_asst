@@ -71,9 +71,12 @@ def _build_input(user_input: str) -> str:
 		parts.append(f"Goals: {st.session_state['profile_goals']}")
 	prefix = f"[{' | '.join(parts)}]\n\n" if parts else ""
 
+	# Only inject portfolio file path when the user explicitly uploaded a file.
+	# Never inject the default fallback — it would mislead the planner into
+	# routing every query to the portfolio agent.
 	file_ctx = ""
-	if st.session_state.get("portfolio_file_path"):
-		file_ctx = f"\n\n[Portfolio file: {st.session_state['portfolio_file_path']}]"
+	if st.session_state.get("portfolio_file_uploaded") and st.session_state.get("portfolio_file_path"):
+		file_ctx = f"\n\n[Portfolio file available: {st.session_state['portfolio_file_path']}]"
 
 	return prefix + user_input + file_ctx
 
@@ -116,11 +119,17 @@ def _render_sidebar(mode: str):
 			with tempfile.NamedTemporaryFile(delete=False, suffix=".xlsx") as tmp:
 				tmp.write(uploaded.read())
 				st.session_state["portfolio_file_path"] = tmp.name
+				st.session_state["portfolio_file_uploaded"] = True
 			st.success(f"Uploaded: {uploaded.name}")
-		elif "portfolio_file_path" not in st.session_state:
-			fallback = (PROJECT_ROOT / "tools" / "sample_portfolio.xlsx").as_posix()
-			st.session_state["portfolio_file_path"] = fallback
-			st.caption(f"Default: {fallback}")
+		else:
+			# Always keep the fallback path available for Mode 1 Portfolio tab,
+			# but mark it as NOT explicitly uploaded so _build_input won't
+			# inject it into every query and confuse the planner.
+			if "portfolio_file_path" not in st.session_state:
+				fallback = (PROJECT_ROOT / "tools" / "sample_portfolio.xlsx").as_posix()
+				st.session_state["portfolio_file_path"] = fallback
+			st.session_state.setdefault("portfolio_file_uploaded", False)
+			st.caption(f"Default: {st.session_state['portfolio_file_path']}")
 
 		st.divider()
 

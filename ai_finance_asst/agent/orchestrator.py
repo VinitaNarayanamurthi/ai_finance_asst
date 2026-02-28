@@ -149,22 +149,33 @@ news_node = safe_agent_node(news_executor, "news_summary")
 def planner_node(state: FinancialState):
     try:
         response = llm.invoke([HumanMessage(content=f"""
-You are a financial query router. Analyze the user input and return ONLY a JSON array of agent names to run.
+You are a financial query router. Analyze the user's QUESTION (ignore any system context in brackets) \
+and return ONLY a JSON array of agent names to run.
 
-Available agents and when to use them:
-- "qa"        : finance concepts, definitions, investment principles, document-based knowledge
-- "portfolio" : portfolio analysis, allocation, diversification, risk metrics, portfolio files
-- "market"    : live stock prices, quotes, company fundamentals, technical data
-- "news"      : financial news, headlines, market sentiment, sector news
+Agents and their strict use cases:
+- "qa"        : finance concepts, definitions, investment principles, how-to explanations,
+                document-based knowledge (e.g. "What is dollar-cost averaging?", "Explain P/E ratio")
+- "portfolio" : user explicitly asks to analyse THEIR portfolio, allocation, diversification,
+                or portfolio performance. Only use when the user's question is clearly about
+                their own portfolio holdings — NOT just because a portfolio file appears in context.
+- "market"    : live/historical stock prices, quotes, company fundamentals, technical data
+                (e.g. "What is AAPL's price?", "Show IBM's daily trend")
+- "news"      : financial news, headlines, sentiment, sector news
+                (e.g. "Latest news on Tesla", "Market sentiment today")
 
 Rules:
-- Return only agents needed to fully answer the query — do not include irrelevant agents.
-- You may return multiple agents if the query spans multiple domains.
-- Return ONLY a valid JSON array. No explanation, no markdown.
+- Route on the USER'S INTENT, not on incidental context like file paths or profile info in brackets.
+- Use "qa" as the default when the question is about finance knowledge or concepts.
+- Only include agents genuinely needed — do not bundle agents unnecessarily.
+- Return ONLY a valid JSON array, no explanation, no markdown.
 
 User input: {state['user_input']}
 
-Example outputs: ["qa"]  |  ["market", "news"]  |  ["portfolio", "market"]
+Examples:
+  "What is asset allocation?" → ["qa"]
+  "Analyse my portfolio risk" → ["portfolio"]
+  "What is AAPL's price today?" → ["market"]
+  "Latest tech news and AAPL price" → ["news", "market"]
         """)])
 
         content = response.content.strip()
