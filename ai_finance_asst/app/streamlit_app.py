@@ -318,10 +318,13 @@ def _render_mode1():
 # MODE 2 — ORCHESTRATOR SINGLE CHAT
 # ============================================================
 
-def _run_orchestrator(user_input: str) -> str:
-	"""Route the query through the multi-agent orchestrator with full history."""
+def _run_orchestrator(user_input: str) -> tuple:
+	"""Route the query through the multi-agent orchestrator with full history.
+
+	Returns (output, agents_run) so the caller knows which agents were invoked.
+	"""
 	lc_history = []
-	for h, a in st.session_state.get("orchestrator_history", []):
+	for h, a, _ in st.session_state.get("orchestrator_history", []):
 		lc_history.append(HumanMessage(content=h))
 		lc_history.append(AIMessage(content=a))
 
@@ -330,8 +333,22 @@ def _run_orchestrator(user_input: str) -> str:
 		"chat_history": lc_history,
 	})
 	output = result.get("final_response", "No response generated.")
-	st.session_state["orchestrator_history"].append((user_input, output))
-	return output
+	agents_run = result.get("agents_to_run", [])
+	st.session_state["orchestrator_history"].append((user_input, output, agents_run))
+	return output, agents_run
+
+
+def _render_portfolio_charts_inline():
+	"""Render portfolio charts inline below the assistant response."""
+	output_dir = PROJECT_ROOT / "analysis_output"
+	chart_files = sorted(output_dir.glob("*.png")) if output_dir.exists() else []
+	if chart_files:
+		st.markdown("#### Portfolio Charts")
+		col1, col2 = st.columns(2)
+		for i, chart_path in enumerate(chart_files):
+			caption = chart_path.stem.replace("_", " ").title()
+			with (col1 if i % 2 == 0 else col2):
+				st.image(str(chart_path), caption=caption, use_container_width=True)
 
 
 def _render_mode2():
@@ -342,23 +359,14 @@ def _render_mode2():
 		icon="🤖",
 	)
 
-	# Replay history
-	for human_msg, ai_msg in st.session_state.get("orchestrator_history", []):
+	# Replay history — show charts inline for any message that invoked portfolio
+	for human_msg, ai_msg, agents_run in st.session_state.get("orchestrator_history", []):
 		with st.chat_message("user"):
 			st.write(human_msg)
 		with st.chat_message("assistant"):
 			st.markdown(ai_msg)
-
-	# Always show latest portfolio charts in an expander
-	output_dir = PROJECT_ROOT / "analysis_output"
-	chart_files = sorted(output_dir.glob("*.png")) if output_dir.exists() else []
-	if chart_files:
-		with st.expander("Portfolio Charts", expanded=False):
-			col1, col2 = st.columns(2)
-			for i, chart_path in enumerate(chart_files):
-				caption = chart_path.stem.replace("_", " ").title()
-				with (col1 if i % 2 == 0 else col2):
-					st.image(str(chart_path), caption=caption, use_container_width=True)
+		if "portfolio" in agents_run:
+			_render_portfolio_charts_inline()
 
 	user_input = st.chat_input(
 		"Ask anything — finance concepts, portfolio, market data, news…"
@@ -368,8 +376,10 @@ def _render_mode2():
 			st.write(user_input)
 		with st.chat_message("assistant"):
 			with st.spinner("Routing to agents…"):
-				output = _run_orchestrator(user_input)
+				output, agents_run = _run_orchestrator(user_input)
 			st.markdown(output)
+		if "portfolio" in agents_run:
+			_render_portfolio_charts_inline()
 
 
 # ============================================================
