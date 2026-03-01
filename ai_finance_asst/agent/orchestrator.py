@@ -95,14 +95,28 @@ def guardrail_node(state: FinancialState):
                 "blocked": True,
                 "guardrail_reason": "Request violates financial compliance policies.",
             }
-    response = llm.invoke([HumanMessage(content=f"""
-        Classify this query as SAFE, UNSAFE, or NEEDS_DISCLAIMER:
-        {state['user_input']}
-    """)])
-    label = response.content.strip().upper()
-    if "UNSAFE" in label:
+
+    # Build context so follow-up queries ("explain more", "elaborate") are
+    # evaluated with the conversation history, not in isolation.
+    messages = list(state.get("chat_history") or [])
+    messages.append(HumanMessage(content=f"""You are a financial compliance guardrail.
+Classify the LATEST user message as exactly one of: SAFE, UNSAFE, or NEEDS_DISCLAIMER.
+
+- SAFE            : normal finance questions, follow-ups, elaborations, greetings
+- NEEDS_DISCLAIMER: speculative advice, predictions, or opinion-heavy requests
+- UNSAFE          : requests that promote illegal activity (fraud, insider trading, tax evasion)
+
+Respond with ONLY the single label word. No explanation, no punctuation.
+
+Latest message: {state['user_input']}"""))
+
+    response = llm.invoke(messages)
+    # Take only the first word to guard against verbose responses
+    label = response.content.strip().upper().split()[0] if response.content.strip() else "SAFE"
+
+    if label == "UNSAFE":
         return {"blocked": True, "guardrail_reason": "Request classified as unsafe."}
-    if "NEEDS_DISCLAIMER" in label:
+    if label == "NEEDS_DISCLAIMER":
         return {"blocked": False, "guardrail_reason": "Educational guidance only — not financial advice."}
     return {"blocked": False}
 
