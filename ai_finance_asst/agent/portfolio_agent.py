@@ -14,7 +14,7 @@ import importlib.util
 
 
 portfolio_insights = [ 'total_portfolio_value', 'total_invested', 'total_gain_loss',
-'asset_type_allocation', 'top_performers',  'diversification', 'chart_paths']
+'asset_type_allocation', 'top_performers',  'diversification']
 
 # Add parent directory to path to allow absolute imports
 sys.path.insert(0, str(Path(__file__).parent.parent.parent))
