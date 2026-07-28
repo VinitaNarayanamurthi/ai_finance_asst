@@ -117,7 +117,7 @@ ai_finance_asst/
 │   └── __init__.py
 │
 ├── app/
-│   ├── streamlit_app.py            # Streamlit web UI (Mode 1 & 2)
+│   ├── app.py            # Streamlit web UI (Mode 1 & 2)
 │   └── __init__.py
 │
 ├── rag/
@@ -249,7 +249,7 @@ Each returned article includes title, source, publish time, 250-character summar
 
 ### App Module
 
-#### `app/streamlit_app.py`
+#### `app/app.py`
 
 Single-file Streamlit application supporting both operating modes.
 
@@ -831,7 +831,7 @@ This only needs to be run once; the vector store persists to disk.
 ### Streamlit (recommended)
 
 ```bash
-streamlit run app/streamlit_app.py
+streamlit run app/app.py
 ```
 
 Open [http://localhost:8501](http://localhost:8501) in your browser.
