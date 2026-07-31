@@ -1,0 +1,46 @@
+:: check python is available
+python --version
+
+:: create venv named "myenv" in the workspace
+ py -3.11 -m venv .venv   or   uv venv --python 3.11
+
+:: activate the venv (cmd)
+C:\Users\vinit\.venv\Scripts\activate.bat
+
+:: upgrade packaging tools
+python -m pip install --upgrade pip setuptools wheel
+
+:: install packages (example)
+pip install langchain langchain-openai
+
+:: select python interpreter in vs code 
+ C:\Users\vinit\.venv\Scripts\python.exe
+
+
+ ::libraries intalled - langchain langchain-community langchainhub langchain-chroma langchain-openai langchain-classic
+
+
+
+ postgres commands
+
+ 1. \! cls - clear screen 
+
+ 2. \dnS - to check the schema 
+ 3. list all tables in schema - \dt finance_asst.* 
+ 4. \dtvs finance_asst.* - to list all db objects 
+
+ 5. make a schema as default - SET search_path TO finance_asst;
+
+ -- List all tables in schema
+  SELECT table_name
+  FROM information_schema.tables
+  WHERE table_schema = 'finance_asst';
+
+  --get column name from table 
+  SELECT
+      column_name,
+      data_type
+  FROM information_schema.columns
+  WHERE table_schema = 'finance_asst'
+  and table_name = 'users'
+  ORDER BY table_name, ordinal_position;

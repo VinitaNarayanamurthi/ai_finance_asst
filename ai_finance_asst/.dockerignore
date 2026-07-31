@@ -1,0 +1,65 @@
+# Docker ignore file for AI Finance Assistant
+
+# Python
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+.Python
+env/
+venv/
+ENV/
+.venv
+
+# Virtual environments
+*.egg-info/
+dist/
+build/
+
+# IDE
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+
+# Environment variables
+.env
+.env.local
+
+# Data and outputs
+analysis_output/
+*.xlsx
+*.csv
+*.png
+*.jpg
+
+# Logs
+*.log
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Git
+.git/
+.gitignore
+
+# Documentation
+*.md
+docs/
+other_docs/
+
+# Test files
+test_*.py
+*_test.py
+
+# Jupyter
+*.ipynb
+.ipynb_checkpoints/
+
+# Database
+*.db
+*.sqlite
+*.sqlite3
+chroma_langchain_db/

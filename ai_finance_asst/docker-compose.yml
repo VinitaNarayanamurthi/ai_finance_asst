@@ -1,0 +1,31 @@
+version: '3.8'
+
+services:
+  ai-finance-asst:
+    build:
+      # Context is capstone_project/ so the container sees the same directory
+      # structure as the local repo (ai_finance_asst/, docs/, chroma_langchain_db/)
+      context: ..
+      dockerfile: ai_finance_asst/Dockerfile
+    container_name: ai-finance-assistant
+    environment:
+      - OPENAI_API_KEY=${OPENAI_API_KEY}
+      - ALPHA_VANTAGE_API_KEY=${ALPHA_VANTAGE_API_KEY}
+    volumes:
+      # Persist the Chroma vector store across container restarts
+      - ../chroma_langchain_db:/app/chroma_langchain_db
+      # Persist generated portfolio charts
+      - ./analysis_output:/app/ai_finance_asst/analysis_output
+      # Allow updating docs without rebuilding the image
+      - ../docs:/app/docs
+      # Allow swapping the sample portfolio file
+      - ./tools:/app/ai_finance_asst/tools
+    ports:
+      - "8501:8501"
+    restart: unless-stopped
+    networks:
+      - finance-network
+
+networks:
+  finance-network:
+    driver: bridge

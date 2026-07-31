@@ -1,0 +1,48 @@
+# =============================================================
+# .dockerignore — place this at capstone_project/ (build context root)
+# =============================================================
+
+# Python bytecode
+**/__pycache__
+**/*.pyc
+**/*.pyo
+**/*.pyd
+
+# Virtual environments
+**/.venv
+**/venv
+**/env
+**/.env
+
+# IDE
+**/.vscode
+**/.idea
+**/*.swp
+**/*.swo
+
+# OS
+**/.DS_Store
+**/Thumbs.db
+
+# Git
+.git
+.gitignore
+
+# Chroma vector DB — mounted as a volume at runtime, not baked into image
+chroma_langchain_db
+
+# Generated chart outputs — mounted as a volume at runtime
+ai_finance_asst/analysis_output
+
+# Utility/dev scripts not needed in the image
+create_portfolio_data.py
+create_sample_xlsx.py
+multi_agent_orchestrator_boiler_template.txt
+other_docs
+
+# Logs
+**/*.log
+
+# Jupyter
+**/*.ipynb
+**/.ipynb_checkpoints
